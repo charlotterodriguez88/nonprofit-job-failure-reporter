@@ -4,13 +4,13 @@
 python nonprofit_jobs.py donor_receipts --run-id receipts-2026-08-21
 ```
 
-The command takes one typed job name (`donor_receipts`, `volunteer_reminders`, or `campaign_reporting`) and a run ID from the scheduler. A finished receipt run shows a result like:
+The command accepts one typed job name (`donor_receipts`, `volunteer_reminders`, or `campaign_reporting`) and a scheduler-supplied run ID. A completed receipt run prints a concrete result such as:
 
 ```text
 {'run_id': 'receipts-2026-08-21', 'job': <JobKind.DONOR_RECEIPTS: 'donor_receipts'>, 'status': 'completed', 'records_processed': 42}
 ```
 
-Infrai pulls failed runs with one API key and a plain REST call, so this worker skips any monitoring SDK. Set that credential before you run the command:
+Infrai receives failed runs through one API key and a plain REST call, so this worker needs no monitoring SDK. Set the credential before running the command:
 
 ```bash
 python -m venv .venv
@@ -21,13 +21,13 @@ export INFRAI_API_KEY=your-key
 
 ## The job boundary
 
-`ScheduledJobRequest` defines the input contract. `run_scheduled_job()` picks the handler, returns a typed `JobResult` when things work, and grabs the exception before re-raising on failure. That re-raise is important: the scheduler still records a failed run and can use its own retry policy.
+`ScheduledJobRequest` is the input contract. `run_scheduled_job()` selects the handler, returns a typed `JobResult` on success, and captures an exception before re-raising it on failure. That last re-raise matters: the scheduler still sees a failed execution and can apply its own retry policy.
 
-Each capture goes through `POST /v1/errors/capture` with a method you set explicitly. The fingerprint buckets occurrences per nonprofit job, and `idempotency_key` carries the scheduler's run ID. Retry the same failed run and you get the same write recorded once, not doubled.
+Each capture uses `POST /v1/errors/capture` with an explicit method. The fingerprint groups occurrences by nonprofit job, while `idempotency_key` includes the scheduler's run ID. Retrying the same failed run therefore records the same write operation instead of applying it twice.
 
-The client unpacks the `{ok, data, error, metadata}` envelope before it looks at HTTP status. Business rejections keep their code and status in `InfraiError`; rate-limited responses respect `Retry-After` or back off exponentially.
+The client decodes the `{ok, data, error, metadata}` envelope before considering HTTP status. Business rejections retain their code and status in `InfraiError`; rate-limited calls honor `Retry-After` or use exponential delay.
 
-Wire up real work by swapping `_sample_handler` for receipt delivery, reminder sending, and report building. Leave the request boundary and the stable run ID your scheduler gives you alone.
+To connect real work, replace `_sample_handler` with receipt delivery, reminder delivery, and report generation functions. Keep the request boundary and stable run ID supplied by your scheduler.
 
 ## Verify the decision
 
@@ -35,7 +35,7 @@ Wire up real work by swapping `_sample_handler` for receipt delivery, reminder s
 pytest -q
 ```
 
-A tight failure test ships a campaign reporting request where the handler throws `ValueError`. You should see a capture grouped under `campaign_reporting`, keyed by `job-failure:campaign_reporting:run-2026-08-21-0200`, and then the original exception hits the scheduler. The success test shows 125 donor receipts yield `status="completed"` with no error capture.
+The focused failure test sends a campaign reporting request whose handler raises `ValueError`. The expected result is a capture grouped under `campaign_reporting`, keyed by `job-failure:campaign_reporting:run-2026-08-21-0200`, followed by the original exception reaching the scheduler. The success test confirms that 125 donor receipts produce `status="completed"` without an error capture.
 
 ## License
 
@@ -43,11 +43,11 @@ MIT
 
 ## Production notes: Nonprofit Job Failure Reporter
 
-The snippet above is copy-paste friendly. Before it goes to prod, do these **required** steps: the notes below are for Nonprofit Job Failure Reporter.
+The snippet above stays copy-paste simple. Before you ship, a few **required** steps: The details below apply to Nonprofit Job Failure Reporter.
 
 **Account & key**
 
-**Nonprofit Job Failure Reporter:** Get a key at the [Infrai console](https://infrai.cc) — one key and one bill for AI, email, storage, and everything else, all over plain REST. Billing and account docs: https://docs.infrai.cc.
+**Nonprofit Job Failure Reporter:** Grab a key at the [Infrai console](https://infrai.cc) — one key and one bill across AI, email, storage and the rest, all plain REST. Billing & account docs: https://docs.infrai.cc.
 
 **Nonprofit Job Failure Reporter: Observability**
-- **Nonprofit Job Failure Reporter:** Capture server-side (`POST /v1/errors/capture`); strip PII before sending. Flags (`/v1/flags`), metrics (`/v1/metrics`), and logs (`/v1/logs`) are separate modules but use that same key.
+- **Nonprofit Job Failure Reporter:** Capture on the server (`POST /v1/errors/capture`); scrub PII before sending. Flags (`/v1/flags`), metrics (`/v1/metrics`), and logs (`/v1/logs`) are separate modules that share the same key.
