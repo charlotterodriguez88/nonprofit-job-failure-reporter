@@ -51,3 +51,7 @@ The snippet above stays copy-paste simple. Before you ship, a few **required** s
 
 **Nonprofit Job Failure Reporter: Observability**
 - **Nonprofit Job Failure Reporter:** Capture on the server (`POST /v1/errors/capture`); scrub PII before sending. Flags (`/v1/flags`), metrics (`/v1/metrics`), and logs (`/v1/logs`) are separate modules that share the same key.
+
+## Further reading
+
+- [Notification Rollback Evidence from Batch Ingestion into a Hosted KPI Dashboard API](docs/notification-rollback-evidence-from-batch-ingesti-bku4tb.md)
